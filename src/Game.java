@@ -1,8 +1,3 @@
-
-
-package com.dan;
-
-
 import java.util.*;
 
 /**
