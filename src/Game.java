@@ -1,161 +1,139 @@
 import java.util.*;
 
 /**
- * This class is the implementation of the board game Secret Hitler in Java
+ * This class is the implementation of the board game Secret Hitler in Java.
  * Secret Hitler was designed by Mike Boxleiter, Tommy Maranges and illustrated by Mackenzie Schubert.
- * The game was produced by Max Temkin
- * @author dan Khan
- * @version 0.2
+ * The game was produced by Max Temkin.
+ * @version 0.5
  */
 public class Game {
-    private List<String> players = new ArrayList<>();           // An ArrayList of the players in the game
-    private Map<String, String> secretRoles = new HashMap<>();   // A HashMap mapping each player to their secret role
-    private Map<String, Boolean> liberal = new HashMap<>();    // A HashMap mapping each player to if they're liberal
-    private List<String> ineligiblePlayers = new ArrayList<>(); // An ArrayList of the 2 players ineligible for the next parliament
+    private List<Player> players = new ArrayList<>();           // An ArrayList of the players in the game
+    private List<Player> ineligiblePlayers = new ArrayList<>(); // An ArrayList of the 2 players ineligible for the next parliament
     private List<String> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
 
     private Scanner scanner = new Scanner(System.in);
     private Random rand = new Random();
 
-    private int numberOfPlayers;
-    private int noOfFascists;
-    private int noOfLiberals;
-    private int presidentIndex;  // The index of the president in the Players ArrayList
+    private Iterator<Player> presidentTracker;
     private int electionTracker; // An int representing the election tracker
-    private int fascistPolicies; // An int representing the number of fascist policies in play
-    private int liberalPolicies; // An int representing the number of liberal policies in play
-    private int gameBoard;       // An int representing which of the 3 fascists boards is used for this game
 
-    private String president;
-    private String chancellor;
+    private LiberalBoard liberalBoard = new LiberalBoard(this);
+    private FascistBoard fascistBoard;
 
-    private boolean voteSucceeds = false;
+    private Player president;
+    private Player chancellor;
+
     private boolean isSpecialElection = false;
     private boolean vetoUnlocked = false;
     private boolean gameActive = true;
 
     /**
-     * Begin the game
+     * Begin the game.
      */
     public void start() {
         setupPlayers();
-        assignRoles();
         newDeck();
-
-        System.out.println("There are " + numberOfPlayers + " players playing");
-        System.out.println("There are " + noOfFascists + " Fascists (including Hitler) and " + noOfLiberals + " Liberals");
+        assignRoles();
 
         nightPhase();
 
-        presidentIndex = rand.nextInt(numberOfPlayers); // Assign presidency to a random player
+        presidentTracker = players.iterator();
+        int presidentIndex = rand.nextInt(players.size()) + 1;
+        for (int i = 1; i < presidentIndex; i++) presidentTracker.next();
+        president = presidentTracker.next();
 
         // Gameplay begins
         while (gameActive) { // Preparing for the removal of system exits
             do {
                 passPresidency();
                 nominateChancellor();
-                vote(); // if the vote succeeds, continue. If not, pass the presidency and try again
+            } while (!vote() && gameActive);
 
-            } while (!voteSucceeds && gameActive);
-            if (gameActive) {
-                legislativeSession();
-            }
-
-
+            if (gameActive) legislativeSession();
         }
     }
 
     /**
-     * Ask user how many players are playing and continue if it's between 5 and 10 inclusive
-     * Create an ArrayList with the names of each player (provided by the user)
+     * Ask user how many players are playing and continue if it's between 5 and 10 inclusive,
+     * then create a Player object for each player, with names provided by the user (no duplicates).
      **/
     private void setupPlayers() {
         System.out.println("How many players are playing?");
-        numberOfPlayers = scanner.nextInt();
+        int numberOfPlayers = scanner.nextInt();
 
         while (!(numberOfPlayers >= 5 && numberOfPlayers <= 10)) {
-            System.out.println(" 5 - 10 players must be playing");
+            System.out.println("5 - 10 players must be playing. Try again");
             numberOfPlayers = scanner.nextInt();
         }
 
+        Set<String> playerNames = new HashSet<>();
         for (int i = 1; i <= numberOfPlayers; i++) {
             System.out.println("What is player " + i + "'s name?");
-            players.add(scanner.next());
+
+            String playerName = scanner.next();
+            while (playerNames.contains(playerName)) {
+                System.out.println("A player with this name already exists. Try again");
+                playerName = scanner.next();
+            }
+            playerNames.add(playerName);
+            players.add(new Player(playerName));
         }
     }
 
     /**
-     * Set the number of liberals and fascists based on the number of players
-     * Create a HashMap, mapping each player name to a role (Liberal, Fascist, Hitler) and thier party
+     * Assign each player a role, the number of players with a certain role depends on the number of players.
+     * Then print a message saying how many of each role are playing.
      **/
     private void assignRoles() {
-        noOfFascists = (numberOfPlayers - 1) / 2; // This includes Hitler
-        noOfLiberals = numberOfPlayers - noOfFascists;
-        gameBoard = noOfFascists - 1;
+        int noOfFascists = (players.size() - 1) / 2; // This includes Hitler
+        int noOfLiberals = players.size() - noOfFascists;
+        fascistBoard = FascistBoard.createFascistBoard(this, noOfFascists - 1);
 
-        ArrayList<String> roles = new ArrayList<>(); // An ArrayList of the roles in the current game
-
-        roles.add("Hitler");
-
-        for (int i = 1; i < noOfFascists; i++) { // Since Hitler counts as a fascist, there is 1 less normal fascist than noOfFascists
-            roles.add("Fascist");
-        }
-
-        for (int i = 1; i <= noOfLiberals; i++) {
-            roles.add("Liberal");
-        }
+        ArrayList<String> roles = new ArrayList<>();
+        roles.add("Hitler"); // Hitler counts as a Fascist
+        for (int i = 1; i < noOfFascists; i++) roles.add("Fascist");
+        for (int i = 1; i <= noOfLiberals; i++) roles.add("Liberal");
 
         Collections.shuffle(roles); // randomizing the order of the roles
 
-        int i = 0;
-        for (String player : players) {
-            secretRoles.put(player, roles.get(i)); // assign each player a role
-            liberal.put(player, roles.get(i).equals("Liberal"));
-            i++;
-        }
+        for (int i = 0; i < players.size(); i++) players.get(i).setRole(roles.get(i));
+        System.out.println("There are " + noOfFascists + " Fascists (including Hitler) and " + noOfLiberals + " Liberals");
     }
 
     /**
-     * Fill the deck with 6 Liberal cards and 11 Fascist cards. Then shuffle the deck
+     * Fill the deck with 6 Liberal cards and 11 Fascist cards, then shuffle the deck.
      */
     private void newDeck() {
-        if (liberalPolicies > 0 || fascistPolicies > 0) { // This will be true after any policy has been enacted
-            System.out.println("A new deck is being shuffled");
-            wait(5000);
-        }
+        System.out.println("A new deck is being shuffled");
         deck.clear();
+        wait(5000);
 
-        for (int i = 1; i <= 6; i++) {
-            deck.add("Liberal");
-        }
-
-        for (int i = 1; i <= 11; i++) {
-            deck.add("Fascist");
-        }
+        for (int i = 1; i <= 6; i++) deck.add("Liberal");
+        for (int i = 1; i <= 11; i++) deck.add("Fascist");
 
         Collections.shuffle(deck);
     }
 
     /**
-     * Tell every player their role. If they are a normal fascist, tell them everyone else's role too
-     * If they are Hitler, only tell them everyone else's role if there are at least 3 fascists (including hitler)
+     * Tell every player their role. If they are a normal fascist, tell them everyone else's role too.
+     * If they are Hitler, only tell them everyone else's role if there are at least 3 fascists (including Hitler).
      */
     private void nightPhase() {
-        for (String player : players) {
-
+        for (Player player : players) {
             devicePass(player);
 
-            switch (secretRoles.get(player)) {
+            switch (player.getRole()) {
                 case "Hitler":
-                    if (gameBoard == 1) {
-                        System.out.println("You are Hitler. The player roles are: " + secretRoles);
+                    if (fascistBoard instanceof FascistBoard1) {
+                        System.out.println("You are Hitler. The Fascists are:");
+                        printFascists();
                     } else {
                         System.out.println("You are Hitler, there is no information for you in the night phase");
                     }
                     break;
-
                 case "Fascist":
-                    System.out.println("You are a Fascist. The player roles are: " + secretRoles);
+                    System.out.println("You are a Fascist. The Fascists are:");
+                    printFascists();
                     break;
 
                 case "Liberal":
@@ -167,30 +145,36 @@ public class Game {
     }
 
     /**
-     * Tell the user to pass the device to a player and wait for that player to type their name to confirm
-     * that the device has been passed
-     * This is useful when information needs to be revealed to a specific player without others knowing
-     * or when information needs to be revealed by a certain player
-     *
-     * @param playerToPass the player the device should be passed to
+     * Print the names of the Fascist players alongside whether they're a normal Fascist or Hitler.
      */
-    private void devicePass(String playerToPass) {
-        System.out.println("Pass the device secretly to " + playerToPass);
-        System.out.println("Type " + playerToPass + " to continue");
-        boolean correct = false;
-        while (!correct) {
-            if (scanner.next().equals(playerToPass)) {
-                correct = true;
-            } else {
-                System.out.println("Try again");
-            }
+    private void printFascists() {
+        for (Player player : players) {
+            String playerRole = player.getRole();
+            if (playerRole.equals("Fascist") || playerRole.equals("Hitler"))
+                System.out.println(player.getName() + " - " + playerRole);
         }
     }
 
     /**
+     * Tell the user to pass the device to the specified player and wait for that player to type their name to confirm
+     * that the device has been passed to them.
+     *
+     * This is useful when information needs to be revealed to a specific player without others knowing
+     * or when information needs to be revealed by a certain player.
+     *
+     * @param playerToPass the player the device should be passed to
+     */
+    private void devicePass(Player playerToPass) {
+        System.out.println("Pass the device secretly to " + playerToPass.getName());
+        System.out.println("Type " + playerToPass.getName() + " to continue");
+
+        while (!scanner.next().equals(playerToPass.getName())) System.out.println("Incorrect. Try again");
+    }
+
+    /**
      * Give the player 10 seconds to read what has been previously printed before
-     * printing 20 lines of dots to hide that
-     * This is useful to use after the device has been passed to a player
+     * printing 20 lines of dots to hide it.
+     * This is useful to use after the device has been passed to a player.
      */
     private void devicePassConcluded() { // Used after passing the device secretly to a player has concluded
         System.out.println("In 10 seconds this message will disappear");
@@ -203,109 +187,111 @@ public class Game {
     }
 
     /**
-     * Transfer the presidency to the next player, stating them as president elect
-     * If this is a special election, announce the selected president without changing the
-     * presidentIndex. This is so the normal rotation returns after the special election
+     * Transfer the presidency to the next player, stating them as president elect.
+     * If this is a special election, announce the selected president without advancing
+     * the iterator. This is so the normal rotation returns after the special election.
      */
     private void passPresidency() {
         System.out.println("Show the device to all players");
         if(!isSpecialElection) {
-            presidentIndex = (presidentIndex + 1) % numberOfPlayers;
-            president = players.get(presidentIndex);
-            System.out.println("The president elect is now " + president);
+            if (!presidentTracker.hasNext()) presidentTracker = players.iterator();
+            president = presidentTracker.next();
+            System.out.println("The president elect is now " + president.getName());
         } else {
-            System.out.println("This is a special election. The president elect is now " + president);
+            System.out.println("This is a special election. The president elect is now " + president.getName());
             isSpecialElection = false;
         }
     }
 
     /**
-     * Let the current president elect nominate the chancellor
-     * Check if the nominated player is in the game, isn't the president themselves, and isn't ineligible
+     * Let the current president elect nominate the chancellor.
      */
     private void nominateChancellor() {
         devicePass(president);
-        System.out.println("The names of the players playing are: " + players);
+        printPlayersPlaying();
         if (!ineligiblePlayers.isEmpty()) {
-            if (numberOfPlayers <= 5) {
+            if (players.size() <= 5) {
                 System.out.println("Note: the chancellor in the last elected parliament is illegible and is: " + ineligiblePlayers);
             } else {
                 System.out.println("Note: players in the last elected parliament are illegible and are: " + ineligiblePlayers);
             }
         }
-        System.out.println("Type the name of the player you want to elect as chancellor (except yourself)");
+        System.out.println("Type the name of the player you want to elect as chancellor");
 
-        boolean valid = false;
-        while (!valid) {
-            String inputName = scanner.next();
-            if (players.contains(inputName)) { // Check if player is in the game
-                if (president.equals(inputName)) { // Check if president chose themselves
-                    System.out.println("You can't nominate yourself as chancellor! Try again");
-                } else {
-                    if (!ineligiblePlayers.contains(inputName)) { // Check if player weren't in the last elected parliament
-                        valid = true;
-                        chancellor = inputName;
+        List<String> eligiblePlayers = new ArrayList<>();
+        for (Player p : players)
+            if (!(p == president || ineligiblePlayers.contains(p))) eligiblePlayers.add(p.getName());
 
-                    } else {
-                        System.out.println("This player was in the last parliament and is therefore ineligible. Try again");
-                    }
-                }
-            } else {
-                System.out.println("Not a valid name. Try again");
-            }
+        System.out.println("Eligible players are:");
+        for (String s : eligiblePlayers) System.out.println(s);
+
+        String inputName = scanner.next();
+        while (!eligiblePlayers.contains(inputName)) {
+            System.out.println("Invalid name. Try again");
+            inputName = scanner.next();
         }
+
+        chancellor = lookupName(inputName);
+    }
+
+    private void printPlayersPlaying() {
+        System.out.println("The names of the players playing are:");
+        for (Player p : players) System.out.println(p.getName());
+    }
+
+    private boolean checkValidName(String name) {
+        for (Player p : players) if (p.getName().equals(name)) return true;
+        return false;
+    }
+
+    private Player lookupName(String name) {
+        for (Player p : players) if (p.getName().equals(name)) return p;
+        return null;
     }
 
     /**
      * Let every player vote for the current parliament secretly before tallying up the votes then displaying
-     * the number of Yes's and No's, alongside each player's vote and whether or not the vote has passed
-     * <p>
+     * the number of Yes's and No's, alongside each player's vote and whether or not the vote has passed.
+     *
      * If the vote passes, announce the elected parliament and set the election tracker to 0. If there are at least
      * 3 Fascist policies announce whether or not the current chancellor is Hitler. If Hitler is the chancellor
-     * end the game, announcing the Fascists as the victors
-     * <p>
-     * If the vote doesn't pass increment the electron tracker and announce so
+     * end the game, announcing the Fascists as the victors.
+     *
+     * If the vote doesn't pass increment the electron tracker and announce so.
+     *
+     * @return True is the vote succeeded. False otherwise.
      */
-    private void vote() {
-        System.out.println("VOTING PHASE:");
-
+    private boolean vote() {
         HashMap<String, String> votes = new HashMap<>();
-
-        for (String player : players) {
-            devicePass(player);
-            System.out.println("Are you in favour of this parliament [Yes/No]:");
-            System.out.println("President = " + president);
-            System.out.println("Chancellor = " + chancellor);
-
-            String inputVote = "";
-
-            boolean valid = false;
-            while (!valid) {
-                inputVote = scanner.next();
-                if (inputVote.equals("Yes") || inputVote.equals("No")) {
-                    valid = true;
-                } else {
-                    System.out.println("Invalid input. Type Yes or No");
-                }
-            }
-            votes.put(player, inputVote);
-            devicePassConcluded();
-        }
-
         int yesVotes = 0;
         int noVotes = 0;
 
-        for (String player : players) {
+        System.out.println("VOTING PHASE:");
 
-            if (votes.get(player).equals("Yes")) {
-                yesVotes++;
-            }
+        for (Player player : players) {
+            devicePass(player);
+            System.out.println("Are you in favour of this parliament [Yes/No]:");
+            System.out.println("President = " + president.getName());
+            System.out.println("Chancellor = " + chancellor.getName());
 
-            if (votes.get(player).equals("No")) {
-                noVotes++;
+            String inputVote = scanner.next();
+            while (!(inputVote.equals("Yes") || inputVote.equals("No"))) {
+                System.out.println("Invalid input. Type Yes or No");
+                inputVote = scanner.next();
             }
+            if (inputVote.equals("Yes")) yesVotes++;
+            else noVotes++;
+
+            votes.put(player.getName(), inputVote);
+            devicePassConcluded();
+        }
+
+        for (Player player : players) {
+            if (votes.get(player.getName()).equals("Yes")) yesVotes++;
+            if (votes.get(player.getName()).equals("No")) noVotes++;
 
         }
+
         System.out.println("Show the device to all players");
 
         System.out.println("The votes are in:");
@@ -314,41 +300,38 @@ public class Game {
         System.out.println("Yes: " + yesVotes);
         System.out.println("No: " + noVotes);
 
-        voteSucceeds = !(noVotes >= yesVotes);
+        boolean voteSucceeds = !(noVotes >= yesVotes);
 
         if (voteSucceeds) {
-            System.out.println("The vote has succeeded. Your new president is " + president + " and your new chancellor is " + chancellor);
+            System.out.println("The vote has succeeded. Your new president is " + president.getName() + " and your new chancellor is " + chancellor.getName());
             setIneligiblePlayers();
+            electionTracker = 0;
         } else {
             System.out.println("The vote has failed");
+            incrementElectionTracker();
         }
 
         wait(10000);
 
-        if (!voteSucceeds) {
-            incrementElectionTracker();
-        } else {
-
-            if (fascistPolicies >= 3) {
+        if (voteSucceeds) {
+            if (fascistBoard.getNoOfPolicies() >= 3) {
                 System.out.println("There are at least 3 fascist policies in play. Is the new chancellor Hitler?");
                 devicePass(chancellor);
                 System.out.println("Show the device to the other players");
                 wait(5000);
-                if (secretRoles.get(chancellor).equals("Hitler")) {
+                if (chancellor.getRole().equals("Hitler")) {
                     endGame("You have elected Hitler as chancellor. The fascists win!");
-                } else {
-                    System.out.println("The chancellor is not Hitler");
-                }
+                } else System.out.println("The chancellor is not Hitler");
             }
-            electionTracker = 0;
         }
+        return voteSucceeds;
     }
 
     /**
      * Set the current president and chancellor as the 2 ineligible players
      */
     private void setIneligiblePlayers() {
-        if (numberOfPlayers <= 5) {
+        if (players.size() <= 5) {
             ineligiblePlayers.clear();
             ineligiblePlayers.add(chancellor);
         } else {
@@ -359,236 +342,126 @@ public class Game {
     }
 
     /**
-     * Wait a given amount of time
+     * Wait a given amount of time.
      *
      * @param timeMS The time to wait in milliseconds
      */
     private void wait(int timeMS) {
         try {
-            Thread.sleep(timeMS); // Change timeMS to 0 to speed up testing
+            Thread.sleep(0); // Change timeMS to 0 to speed up testing
         } catch (InterruptedException ignored) {
         }
     }
 
-    /**
-     * Play the top from a given stack on the board
-     * Activate any win conditions necessary
-     * If this is due to a successful vote, activate any executive actions necessary
-     */
-    private void playPolicyFromStack(List<String> stack) {
-        if (stack.get(0).equals("Liberal")) {
-            liberalPolicies++;
-            System.out.println("A Liberal policy has been enacted");
-            System.out.println("There are now " + liberalPolicies + " Liberal policies in play");
-        } else if (stack.get(0).equals("Fascist")) {
-            fascistPolicies++;
-            System.out.println("A Fascist policy has been enacted");
-            System.out.println("There are now " + fascistPolicies + " Fascist policies in play");
-        }
-        stack.remove(0);
-
-        if (liberalPolicies == 5) {
-            endGame("You have enacted 5 liberal policies. The liberals win!");
-        }
-
-        if (fascistPolicies == 6) {
-            endGame("You have enacted 6 fascist policies. The fascist win!");
-        }
-
-        if (voteSucceeds && gameActive) {
-
-            switch (gameBoard) {
-                case 1:
-                    switch (fascistPolicies) {
-                        case 1:
-                            break;
-                        case 2:
-                            break;
-                        case 3:
-                            policyPeek();
-                            break;
-                        case 4:
-                            executePlayer();
-                            break;
-                        case 5:
-                            executePlayer();
-                            vetoUnlocked = true;
-                            break;
-                    }
-                    break;
-                case 2:
-                    switch (fascistPolicies) {
-                        case 1:
-                            break;
-                        case 2:
-                            investigatePlayer();
-                            break;
-                        case 3:
-                            specialElection();
-                            break;
-                        case 4:
-                            executePlayer();
-                            break;
-                        case 5:
-                            executePlayer();
-                            vetoUnlocked = true;
-                            break;
-                    }
-                        break;
-                case 3:
-                    switch (fascistPolicies) {
-                        case 1:
-                            investigatePlayer();
-                            break;
-                        case 2:
-                            investigatePlayer();
-                            break;
-                        case 3:
-                            specialElection();
-                            break;
-                        case 4:
-                            executePlayer();
-                            break;
-                        case 5:
-                            executePlayer();
-                            vetoUnlocked = true;
-                            break;
-                    }
-                    break;
-            }
+    private void playPolicy(String policy, boolean performAction) {
+        switch (policy) {
+            case "Liberal":
+                liberalBoard.addPolicy(performAction);
+                break;
+            case "Fascist":
+                fascistBoard.addPolicy(performAction);
+                break;
+            default:
+                throw new IllegalArgumentException();
         }
     }
 
+    public void unlockVeto() {
+        vetoUnlocked = true;
+    }
+
     /**
-     * The president selects a player to be executed
+     * The president selects a player to be executed.
      * Announce if they are Hitler or not. If they are Hitler end the game, announcing
      * the liberals as the victors. If they are not, remove them from the game.
      */
-    private void executePlayer() {
+    public void executePlayer() {
         System.out.println("The president must choose a player to execute");
 
         devicePass(president);
-        System.out.println("The names of the players playing are: " + players);
+        printPlayersPlaying();
         System.out.println("Type the name of the player you want to execute (except yourself)");
 
-        String playerExecuted = "";
-        boolean valid = false;
-        while (!valid) {
-            String inputName = scanner.next();
-            if (players.contains(inputName)) { // Check if player is in the game
-                if (president.equals(inputName)) { // Check if president chose themselves
-                    System.out.println("You can't execute yourself! Try again");
-                } else {
-                    valid = true;
-                    playerExecuted = inputName;
-                }
-            } else {
-                System.out.println("Not a valid name. Try again");
-            }
+        String inputName = scanner.next();
+        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+            System.out.println("Not a valid name. Try again");
+            inputName = scanner.next();
         }
 
-        System.out.println("The president has chosen to execute " + playerExecuted);
+        System.out.println("The president has chosen to execute " + inputName);
         System.out.println("Was the executed player Hitler?");
         wait(5000);
 
-        if (secretRoles.get(playerExecuted).equals("Hitler")) {
-            endGame(playerExecuted + " was Hitler. The liberals win!");
-        } else {
-            System.out.println(playerExecuted + " was not Hitler");
+        Player playerExecuted = lookupName(inputName);
+        if (playerExecuted.getRole().equals("Hitler")) endGame(inputName + " was Hitler. The liberals win!");
+        else {
+            System.out.println(inputName + " was not Hitler");
+            System.out.println(inputName + " cannot participate for the rest of the game");
+            removePlayer(playerExecuted);
         }
-        System.out.println(playerExecuted + " cannot participate for the rest of the game");
-        removePlayer(playerExecuted);
     }
 
     /**
-     * Remove a player from the game by remove them from any relevant ArrayLists and HashMaps
-     * Adjust the presidentIndex if necessary, as necessary
+     * Remove a player from the game by removing them from any relevant Collections
+     *
      * @param player player to be removed
      */
-    private void removePlayer(String player) { // Check is there are any bugs if the chancellor is killed
-
-        int playerIndex = players.indexOf(player);
-
+    private void removePlayer(Player player) { // Check is there are any bugs if the chancellor is killed
         players.remove(player);
-        numberOfPlayers--;
-        secretRoles.remove(player);
-        liberal.remove(player);
-
-        if (ineligiblePlayers.contains(player)) {
-            ineligiblePlayers.remove(player);
-        }
-
-        if (playerIndex < presidentIndex) {
-            presidentIndex--;
-        }
+        ineligiblePlayers.remove(player);
     }
 
     /**
-     * The president selects a player to be the president elect next round
-     * After that round, the rotation returns to normal
+     * The president selects a player to be the president elect next round.
+     * After that round, the rotation returns to normal.
      */
-    private void specialElection() {
+    public void specialElection() {
         System.out.println("The president must choose a player to elect another player to be the next president");
 
         devicePass(president);
-        System.out.println("The names of the players playing are: " + players);
+        printPlayersPlaying();
         System.out.println("Type the name of the player you want to elect as the next president (except yourself)");
 
-        boolean valid = false;
-        while (!valid) {
-            String inputName = scanner.next();
-            if (players.contains(inputName)) { // Check if player is in the game
-                if (president.equals(inputName)) { // Check if president chose themselves
-                    System.out.println("You can't nominate yourself as the next president elect! Try again");
-                } else {
-                    valid = true;
-                    isSpecialElection = true;
-                    System.out.println("The president has nominated " + inputName + " as the next president elect");
-                    president = inputName;
-                }
-            } else {
-                System.out.println("Not a valid name. Try again");
-            }
+        String inputName = scanner.next();
+        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+            System.out.println("Not a valid name. Try again");
+            inputName = scanner.next();
         }
+
+        isSpecialElection = true;
+        System.out.println("The president has nominated " + inputName + " as the next president elect");
+        president = lookupName(inputName);
     }
 
     /**
-     * The president selects a player and their party membership is secretly revealed to them
+     * The president selects a player and their party membership is secretly revealed to them.
      */
-    private void investigatePlayer() {
+    public void investigatePlayer() {
         System.out.println("The president must choose a player to investigate a their party membership");
 
         devicePass(president);
-        System.out.println("The names of the players playing are: " + players);
+        printPlayersPlaying();
         System.out.println("Type the name of the player you want to investigate (except yourself)");
 
-        String playerInvestigated = "";
-        boolean valid = false;
-        while (!valid) {
-            String inputName = scanner.next();
-            if (players.contains(inputName)) { // Check if player is in the game
-                if (president.equals(inputName)) { // Check if president chose themselves
-                    System.out.println("You can't investigate yourself! Try again");
-                } else {
-                    valid = true;
-                    playerInvestigated = inputName;
-                }
-            } else {
-                System.out.println("Not a valid name. Try again");
-            }
+        String inputName = scanner.next();
+        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+            System.out.println("Not a valid name. Try again");
+            inputName = scanner.next();
         }
 
-        System.out.println("Watch the device's screen while " + playerInvestigated + " has the device");
-        devicePass(playerInvestigated);
-        System.out.println(playerInvestigated + " party membership is " + (liberal.get(playerInvestigated) ? "Liberal" : "Fascist"));
+        Player investigatedPlayer = lookupName(inputName);
+
+        System.out.println("Watch the device's screen while " + inputName + " has the device");
+        devicePass(investigatedPlayer);
+        System.out.println(inputName + " party membership is " + (investigatedPlayer.getRole().equals("Liberal") ? "Liberal" : "Fascist"));
 
         devicePassConcluded();
     }
 
     /**
-     * The top 3 policies in the deck are revealed to the president in order
+     * The top 3 policies in the deck are revealed to the president in order.
      */
-    private void policyPeek() {
+    public void policyPeek() {
         System.out.println("The president must look at the first 3 policies in order");
 
         ArrayList<String> peek = new ArrayList<>();
@@ -604,7 +477,7 @@ public class Game {
 
     /**
      * Increment the election tracker and announce the new value. If it reaches 3,
-     * play the top policy in the deck then reset it to 0
+     * play the top policy in the deck then reset it to 0.
      */
     private void incrementElectionTracker() {
         electionTracker++;
@@ -612,14 +485,16 @@ public class Game {
         System.out.println("The election tracker is now on " + electionTracker);
         if (electionTracker == 3) {
             System.out.println("The top policy in the deck will automatically be played");
-            playPolicyFromStack(deck);
+            playPolicy(deck.remove(0), false);
             ineligiblePlayers.clear();
             electionTracker = 0;
         }
     }
 
     /**
-     *
+     * The president draws 3 policies from the top of the deck (make a new deck if it's too small),
+     * then they secretly pass 2 to the chancellor who chooses 1 to play, or requests to veto if
+     * the veto power is unlocked. If the president agrees with the veto, the 2 cards are discarded.
      */
     private void legislativeSession() {
         System.out.println("LEGISLATIVE SESSION");
@@ -628,29 +503,20 @@ public class Game {
 
         ArrayList<String> hand = new ArrayList<>();
 
-        if (deck.size() < 3) {
-            newDeck();
-            System.out.println("There are now " + deck.size() + " policies remaining in the deck");
-        }
-        for (int i = 0; i < 3; i++) {
-            hand.add(deck.get(0));
-            deck.remove(0);
-        }
+        if (deck.size() < 3) newDeck();
+
+        for (int i = 0; i < 3; i++) hand.add(deck.remove(0));
 
         devicePass(president);
         System.out.println("You have drawn " + hand);
         System.out.println("Select a policy to discard [1/2/3]");
 
-        int inputIndex = 0;
-        boolean valid = false;
-        while (!valid) {
+        int inputIndex = scanner.nextInt() - 1;
+        while (!(inputIndex >= 0 && inputIndex < 3)) {
+            System.out.println("You must type 1, 2 or 3. Try again");
             inputIndex = scanner.nextInt() - 1;
-            if (inputIndex >= 0 && inputIndex < 3) {
-                valid = true;
-            } else {
-                System.out.println("You must type 1, 2 or 3. Try again");
-            }
         }
+
         hand.remove(inputIndex);
         Collections.shuffle(hand);
         devicePassConcluded();
@@ -659,40 +525,31 @@ public class Game {
         while (!vetoSuccess) {
             devicePass(chancellor);
             System.out.println("You have drawn " + hand);
-            System.out.println("Select a policy to discard [1/2]" + (vetoUnlocked ? " If you want to veto type 3" : ""));
+            System.out.println("Select a policy to discard [1/2]" + (vetoUnlocked ? "\nIf you want to veto type 0" : ""));
 
-            valid = false;
-            while (!valid) {
+            inputIndex = scanner.nextInt() - 1;
+            while (!(inputIndex >= (vetoUnlocked ? -1 : 0) && inputIndex < 2)) {
+                System.out.println("You must type 1 or 2" + (vetoUnlocked ? " or 0" : "") + ". Try again");
                 inputIndex = scanner.nextInt() - 1;
-                if (inputIndex >= 0 && inputIndex < (vetoUnlocked ? 3 : 2)) {
-                    valid = true;
-                } else {
-                    System.out.println("You must type 1 or 2" + (vetoUnlocked ? " or 3. " : ". ") + "Try again");
-                }
             }
-            if (!(inputIndex == 2)) {
+
+            if (!(inputIndex == -1)) {
                 hand.remove(inputIndex);
                 vetoSuccess = true;
-                playPolicyFromStack(hand);
+                playPolicy(hand.remove(0), true);
                 devicePassConcluded();
             } else {
-                System.out.println("After this message disappears announce that you wish to veto this agenda");
+                System.out.println("After this message disappears announce that you wish to veto this agenda, then ");
                 devicePassConcluded();
 
                 devicePass(president);
                 System.out.println("Do you wish to veto this agenda? [Yes/No]");
                 System.out.println("Announce your answer after typing it");
 
-                String inputVote = "";
-
-                valid = false;
-                while (!valid) {
+                String inputVote = scanner.next();
+                while (!(inputVote.equals("Yes") || inputVote.equals("No"))) {
+                    System.out.println("Invalid input. Type Yes or No");
                     inputVote = scanner.next();
-                    if (inputVote.equals("Yes") || inputVote.equals("No")) {
-                        valid = true;
-                    } else {
-                        System.out.println("Invalid input. Type Yes or No");
-                    }
                 }
 
                 if (inputVote.equals("Yes")) {
@@ -710,7 +567,7 @@ public class Game {
      * @param message the message to display before ending the game in the format
      *                "winCondition. The winningTeam win"
      */
-    private void endGame(String message) {
+    public void endGame(String message) {
         System.out.println(message);
         wait(10000);
         gameActive = false;
