@@ -5,7 +5,7 @@ public class LiberalBoard extends Board {
     }
 
     /**
-     * If the number of policies on the liberal board is 6, they win the game.
+     * If the number of policies on the liberal board is 6, Liberals win the game.
      */
     @Override
     protected void policyAction(boolean performAction) {

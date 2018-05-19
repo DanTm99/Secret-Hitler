@@ -26,7 +26,7 @@ public abstract class FascistBoard extends Board {
     @Override
     protected void policyAction(boolean performAction) {
         System.out.println("A Fascist policy has been enacted\nThere are now "
-                + noOfPolicies + " Liberal policies in play");
+                + noOfPolicies + " Fascist policies in play");
         if (noOfPolicies == 6) game.endGame("You have enacted 6 Fascist policies. The Fascists win!");
         if (performAction) fascistPolicyAction();
     }

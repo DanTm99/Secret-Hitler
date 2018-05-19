@@ -7,15 +7,15 @@ import java.util.*;
  * @version 0.5
  */
 public class Game {
-    private List<Player> players = new ArrayList<>();           // An ArrayList of the players in the game
-    private List<Player> ineligiblePlayers = new ArrayList<>(); // An ArrayList of the 2 players ineligible for the next parliament
+    private List<Player> players = new ArrayList<>();           // An List of the players in the game
+    private List<Player> ineligiblePlayers = new ArrayList<>(); // A ArrayList of the 2 players ineligible for the next parliament
     private List<String> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
 
     private Scanner scanner = new Scanner(System.in);
     private Random rand = new Random();
 
-    private Iterator<Player> presidentTracker;
-    private int electionTracker; // An int representing the election tracker
+    private Iterator<Player> presidentTracker;  // An Iterator that keeps track of the president
+    private int electionTracker;                // An int representing the election tracker
 
     private LiberalBoard liberalBoard = new LiberalBoard(this);
     private FascistBoard fascistBoard;
@@ -348,7 +348,7 @@ public class Game {
      */
     private void wait(int timeMS) {
         try {
-            Thread.sleep(0); // Change timeMS to 0 to speed up testing
+            Thread.sleep(timeMS); // Change timeMS to 0 to speed up testing
         } catch (InterruptedException ignored) {
         }
     }
@@ -564,8 +564,7 @@ public class Game {
 
     /**
      * End the current game
-     * @param message the message to display before ending the game in the format
-     *                "winCondition. The winningTeam win"
+     * @param message the message to display before ending the game
      */
     public void endGame(String message) {
         System.out.println(message);
