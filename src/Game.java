@@ -4,20 +4,20 @@ import java.util.*;
  * This class is the implementation of the board game Secret Hitler in Java.
  * Secret Hitler was designed by Mike Boxleiter, Tommy Maranges and illustrated by Mackenzie Schubert.
  * The game was produced by Max Temkin.
- * @version 0.5
+ * @version 0.6
  */
 public class Game {
-    private List<Player> players = new ArrayList<>();           // An List of the players in the game
-    private List<Player> ineligiblePlayers = new ArrayList<>(); // A ArrayList of the 2 players ineligible for the next parliament
-    private List<String> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
+    private final List<Player> players = new ArrayList<>();           // An List of the players in the game
+    private final List<Player> ineligiblePlayers = new ArrayList<>(); // A ArrayList of the 2 players ineligible for the next parliament
+    private final List<Policy> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
 
-    private Scanner scanner = new Scanner(System.in);
-    private Random rand = new Random();
+    private final Scanner scanner = new Scanner(System.in);
+    private final Random rand = new Random();
 
     private Iterator<Player> presidentTracker;  // An Iterator that keeps track of the president
     private int electionTracker;                // An int representing the election tracker
 
-    private LiberalBoard liberalBoard = new LiberalBoard(this);
+    private final LiberalBoard liberalBoard = new LiberalBoard(this);
     private FascistBoard fascistBoard;
 
     private Player president;
@@ -34,12 +34,11 @@ public class Game {
         setupPlayers();
         newDeck();
         assignRoles();
-
         nightPhase();
 
         presidentTracker = players.iterator();
-        int presidentIndex = rand.nextInt(players.size()) + 1;
-        for (int i = 1; i < presidentIndex; i++) presidentTracker.next();
+        int presidentIndex = rand.nextInt(players.size());
+        for (int i = 0; i < presidentIndex; i++) presidentTracker.next();
         president = presidentTracker.next();
 
         // Gameplay begins
@@ -61,7 +60,7 @@ public class Game {
         System.out.println("How many players are playing?");
         int numberOfPlayers = scanner.nextInt();
 
-        while (!(numberOfPlayers >= 5 && numberOfPlayers <= 10)) {
+        while (numberOfPlayers < 5 || numberOfPlayers > 10) {
             System.out.println("5 - 10 players must be playing. Try again");
             numberOfPlayers = scanner.nextInt();
         }
@@ -92,7 +91,7 @@ public class Game {
         ArrayList<String> roles = new ArrayList<>();
         roles.add("Hitler"); // Hitler counts as a Fascist
         for (int i = 1; i < noOfFascists; i++) roles.add("Fascist");
-        for (int i = 1; i <= noOfLiberals; i++) roles.add("Liberal");
+        for (int i = 0; i < noOfLiberals; i++) roles.add("Liberal");
 
         Collections.shuffle(roles); // randomizing the order of the roles
 
@@ -108,8 +107,8 @@ public class Game {
         deck.clear();
         wait(5000);
 
-        for (int i = 1; i <= 6; i++) deck.add("Liberal");
-        for (int i = 1; i <= 11; i++) deck.add("Fascist");
+        for (int i = 0; i < 6; i++) deck.add(Policy.LIBERAL);
+        for (int i = 0; i < 11; i++) deck.add(Policy.FASCIST);
 
         Collections.shuffle(deck);
     }
@@ -127,9 +126,7 @@ public class Game {
                     if (fascistBoard instanceof FascistBoard1) {
                         System.out.println("You are Hitler. The Fascists are:");
                         printFascists();
-                    } else {
-                        System.out.println("You are Hitler, there is no information for you in the night phase");
-                    }
+                    } else System.out.println("You are Hitler, there is no information for you in the night phase");
                     break;
                 case "Fascist":
                     System.out.println("You are a Fascist. The Fascists are:");
@@ -181,7 +178,7 @@ public class Game {
 
         wait(10000);
 
-        for (int i = 1; i <= 20; i++) {
+        for (int i = 0; i < 20; i++) {
             System.out.println(".");
         }
     }
@@ -289,7 +286,6 @@ public class Game {
         for (Player player : players) {
             if (votes.get(player.getName()).equals("Yes")) yesVotes++;
             if (votes.get(player.getName()).equals("No")) noVotes++;
-
         }
 
         System.out.println("Show the device to all players");
@@ -300,7 +296,7 @@ public class Game {
         System.out.println("Yes: " + yesVotes);
         System.out.println("No: " + noVotes);
 
-        boolean voteSucceeds = !(noVotes >= yesVotes);
+        boolean voteSucceeds = noVotes < yesVotes;
 
         if (voteSucceeds) {
             System.out.println("The vote has succeeded. Your new president is " + president.getName() + " and your new chancellor is " + chancellor.getName());
@@ -353,8 +349,8 @@ public class Game {
         }
     }
 
-    private void playPolicy(String policy, boolean performAction) {
-        switch (policy) {
+    private void playPolicy(Policy policy, boolean performAction) {
+        switch (policy.toString()) {
             case "Liberal":
                 liberalBoard.addPolicy(performAction);
                 break;
@@ -463,14 +459,10 @@ public class Game {
      */
     public void policyPeek() {
         System.out.println("The president must look at the first 3 policies in order");
-
-        ArrayList<String> peek = new ArrayList<>();
-
-        for (int i = 0; i < 3; i++) {
-            peek.add(deck.get(i));
-        }
         devicePass(president);
-        System.out.println("The top 3 cards (from top to bottom) are: " + peek);
+
+        System.out.println("The top 3 cards (from top to bottom) are:");
+        for (int i = 0; i < 3; i++) System.out.println(deck.get(i));
         devicePassConcluded();
     }
 
@@ -501,7 +493,7 @@ public class Game {
         System.out.println("Nobody may talk until a policy is enacted");
         System.out.println("There are " + deck.size() + " policies remaining in the deck");
 
-        ArrayList<String> hand = new ArrayList<>();
+        ArrayList<Policy> hand = new ArrayList<>();
 
         if (deck.size() < 3) newDeck();
 
@@ -512,7 +504,7 @@ public class Game {
         System.out.println("Select a policy to discard [1/2/3]");
 
         int inputIndex = scanner.nextInt() - 1;
-        while (!(inputIndex >= 0 && inputIndex < 3)) {
+        while (inputIndex < 1 || inputIndex >= 3) {
             System.out.println("You must type 1, 2 or 3. Try again");
             inputIndex = scanner.nextInt() - 1;
         }
@@ -528,7 +520,7 @@ public class Game {
             System.out.println("Select a policy to discard [1/2]" + (vetoUnlocked ? "\nIf you want to veto type 0" : ""));
 
             inputIndex = scanner.nextInt() - 1;
-            while (!(inputIndex >= (vetoUnlocked ? -1 : 0) && inputIndex < 2)) {
+            while (inputIndex < (vetoUnlocked ? -1 : 0) || inputIndex >= 2) {
                 System.out.println("You must type 1 or 2" + (vetoUnlocked ? " or 0" : "") + ". Try again");
                 inputIndex = scanner.nextInt() - 1;
             }
