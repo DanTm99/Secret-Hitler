@@ -4,7 +4,6 @@ import java.util.*;
  * This class is the implementation of the board game Secret Hitler in Java.
  * Secret Hitler was designed by Mike Boxleiter, Tommy Maranges and illustrated by Mackenzie Schubert.
  * The game was produced by Max Temkin.
- * @version 0.6
  */
 public class Game {
     private final List<Player> players = new ArrayList<>();           // An List of the players in the game
@@ -88,10 +87,10 @@ public class Game {
         int noOfLiberals = players.size() - noOfFascists;
         fascistBoard = FascistBoard.createFascistBoard(this, noOfFascists - 1);
 
-        ArrayList<String> roles = new ArrayList<>();
-        roles.add("Hitler"); // Hitler counts as a Fascist
-        for (int i = 1; i < noOfFascists; i++) roles.add("Fascist");
-        for (int i = 0; i < noOfLiberals; i++) roles.add("Liberal");
+        ArrayList<Role> roles = new ArrayList<>();
+        roles.add(Role.HITLER);
+        for (int i = 1; i < noOfFascists; i++) roles.add(Role.FASCIST);
+        for (int i = 0; i < noOfLiberals; i++) roles.add(Role.LIBERAL);
 
         Collections.shuffle(roles); // randomizing the order of the roles
 
@@ -122,18 +121,18 @@ public class Game {
             devicePass(player);
 
             switch (player.getRole()) {
-                case "Hitler":
+                case HITLER:
                     if (fascistBoard instanceof FascistBoard1) {
                         System.out.println("You are Hitler. The Fascists are:");
                         printFascists();
                     } else System.out.println("You are Hitler, there is no information for you in the night phase");
                     break;
-                case "Fascist":
+                case FASCIST:
                     System.out.println("You are a Fascist. The Fascists are:");
                     printFascists();
                     break;
 
-                case "Liberal":
+                case LIBERAL:
                     System.out.println("You are a liberal, there is no information for you in the night phase");
                     break;
             }
@@ -146,9 +145,8 @@ public class Game {
      */
     private void printFascists() {
         for (Player player : players) {
-            String playerRole = player.getRole();
-            if (playerRole.equals("Fascist") || playerRole.equals("Hitler"))
-                System.out.println(player.getName() + " - " + playerRole);
+            Role playerRole = player.getRole();
+            if (playerRole.getParty().equals("Fascist")) System.out.println(player.getName() + " - " + playerRole);
         }
     }
 
@@ -315,7 +313,7 @@ public class Game {
                 devicePass(chancellor);
                 System.out.println("Show the device to the other players");
                 wait(5000);
-                if (chancellor.getRole().equals("Hitler")) {
+                if (chancellor.getRole().equals(Role.HITLER)) {
                     endGame("You have elected Hitler as chancellor. The fascists win!");
                 } else System.out.println("The chancellor is not Hitler");
             }
@@ -350,11 +348,11 @@ public class Game {
     }
 
     private void playPolicy(Policy policy, boolean performAction) {
-        switch (policy.toString()) {
-            case "Liberal":
+        switch (policy) {
+            case LIBERAL:
                 liberalBoard.addPolicy(performAction);
                 break;
-            case "Fascist":
+            case FASCIST:
                 fascistBoard.addPolicy(performAction);
                 break;
             default:
@@ -389,7 +387,7 @@ public class Game {
         wait(5000);
 
         Player playerExecuted = lookupName(inputName);
-        if (playerExecuted.getRole().equals("Hitler")) endGame(inputName + " was Hitler. The liberals win!");
+        if (playerExecuted.getRole().equals(Role.HITLER)) endGame(inputName + " was Hitler. The liberals win!");
         else {
             System.out.println(inputName + " was not Hitler");
             System.out.println(inputName + " cannot participate for the rest of the game");
@@ -449,7 +447,7 @@ public class Game {
 
         System.out.println("Watch the device's screen while " + inputName + " has the device");
         devicePass(investigatedPlayer);
-        System.out.println(inputName + " party membership is " + (investigatedPlayer.getRole().equals("Liberal") ? "Liberal" : "Fascist"));
+        System.out.println(inputName + " party membership is " + (investigatedPlayer.getRole().getParty()));
 
         devicePassConcluded();
     }

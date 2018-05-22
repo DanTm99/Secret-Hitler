@@ -1,6 +1,6 @@
 public class Player {
     private final String name;
-    private String role;
+    private Role role;
 
     public Player(String name) {
         this.name = name;
@@ -10,11 +10,11 @@ public class Player {
         return name;
     }
 
-    public String getRole() {
+    public Role getRole() {
         return role;
     }
 
-    public void setRole(String role) {
+    public void setRole(Role role) {
         this.role = role;
     }
 }
