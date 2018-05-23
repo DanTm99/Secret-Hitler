@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity"
+            minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.141"
+            fx:controller="Controller">
+    <center>
+        <HBox alignment="TOP_CENTER" prefHeight="100.0" prefWidth="200.0" spacing="50.0" BorderPane.alignment="CENTER">
+            <children>
+                <Button fx:id="singleMachineButton" mnemonicParsing="false" onAction="#singleMachineButtonClicked"
+                        prefHeight="50.0" prefWidth="200.0" text="Single Machine">
+                    <HBox.margin>
+                        <Insets/>
+                    </HBox.margin>
+                </Button>
+                <Button fx:id="multiMachineButton" disable="true" mnemonicParsing="false"
+                        onAction="#multiMachineButtonClicked" prefHeight="50.0" prefWidth="200.0" text="Multi Machine">
+                    <HBox.margin>
+                        <Insets/>
+                    </HBox.margin>
+                </Button>
+            </children>
+            <BorderPane.margin>
+                <Insets top="50.0"/>
+            </BorderPane.margin>
+            <opaqueInsets>
+                <Insets/>
+            </opaqueInsets>
+        </HBox>
+    </center>
+    <top>
+        <Label text="Secret Spies" BorderPane.alignment="CENTER">
+            <font>
+                <Font size="40.0"/>
+            </font>
+            <opaqueInsets>
+                <Insets/>
+            </opaqueInsets>
+            <BorderPane.margin>
+                <Insets bottom="20.0" top="20.0"/>
+            </BorderPane.margin>
+        </Label>
+    </top>
+</BorderPane>
