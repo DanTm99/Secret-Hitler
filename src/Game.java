@@ -6,15 +6,16 @@ import java.util.*;
  * The game was produced by Max Temkin.
  */
 public class Game {
-    private final List<Player> players = new ArrayList<>();           // An List of the players in the game
+    private final List<Player> players = new ArrayList<>();
     private final List<Player> ineligiblePlayers = new ArrayList<>(); // A ArrayList of the 2 players ineligible for the next parliament
-    private final List<Policy> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
+    private final List<Policy> drawPile = new ArrayList<>();
+    private final List<Policy> discardPile = new ArrayList<>();
 
     private final Scanner scanner = new Scanner(System.in);
     private final Random rand = new Random();
 
-    private Iterator<Player> presidentTracker;  // An Iterator that keeps track of the president
-    private int electionTracker;                // An int representing the election tracker
+    private Iterator<Player> presidentTracker; // An Iterator that keeps track of the president
+    private int electionTracker; // An int representing the state of the election tracker
 
     private final LiberalBoard liberalBoard = new LiberalBoard(this);
     private FascistBoard fascistBoard;
@@ -31,7 +32,7 @@ public class Game {
      */
     public void start() {
         setupPlayers();
-        newDeck();
+        initialiseDrawPile();
         assignRoles();
         nightPhase();
 
@@ -99,17 +100,29 @@ public class Game {
     }
 
     /**
-     * Fill the deck with 6 Liberal cards and 11 Fascist cards, then shuffle the deck.
+     * Fill the draw pile with 6 Liberal policies and 11 Fascist policies, then shuffle the draw pile.
      */
-    private void newDeck() {
-        System.out.println("A new deck is being shuffled");
-        deck.clear();
+    private void initialiseDrawPile() {
+        drawPile.clear();
+
+        for (int i = 0; i < 6; i++) drawPile.add(Policy.LIBERAL);
+        for (int i = 0; i < 11; i++) drawPile.add(Policy.FASCIST);
+
+        Collections.shuffle(drawPile);
+    }
+
+    /**
+     * Shuffle the discard pile into the draw pile.
+     */
+    private void reshuffleDrawPile() {
+        System.out.println("The draw pile does not have enough policies");
+        System.out.println("The discard pile is being shuffled into the draw pile");
         wait(5000);
 
-        for (int i = 0; i < 6; i++) deck.add(Policy.LIBERAL);
-        for (int i = 0; i < 11; i++) deck.add(Policy.FASCIST);
+        drawPile.addAll(discardPile);
+        discardPile.clear();
 
-        Collections.shuffle(deck);
+        Collections.shuffle(drawPile);
     }
 
     /**
@@ -234,9 +247,9 @@ public class Game {
         for (Player p : players) System.out.println(p.getName());
     }
 
-    private boolean checkValidName(String name) {
-        for (Player p : players) if (p.getName().equals(name)) return true;
-        return false;
+    private boolean checkInvalidName(String name) {
+        for (Player p : players) if (p.getName().equals(name)) return false;
+        return true;
     }
 
     private Player lookupName(String name) {
@@ -325,14 +338,10 @@ public class Game {
      * Set the current president and chancellor as the 2 ineligible players
      */
     private void setIneligiblePlayers() {
-        if (players.size() <= 5) {
-            ineligiblePlayers.clear();
-            ineligiblePlayers.add(chancellor);
-        } else {
         ineligiblePlayers.clear();
-        ineligiblePlayers.add(president);
         ineligiblePlayers.add(chancellor);
-    }
+
+        if (players.size() > 5) ineligiblePlayers.add(president);
     }
 
     /**
@@ -377,7 +386,7 @@ public class Game {
         System.out.println("Type the name of the player you want to execute (except yourself)");
 
         String inputName = scanner.next();
-        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+        while (president.getName().equals(inputName) || checkInvalidName(inputName)) {
             System.out.println("Not a valid name. Try again");
             inputName = scanner.next();
         }
@@ -417,7 +426,7 @@ public class Game {
         System.out.println("Type the name of the player you want to elect as the next president (except yourself)");
 
         String inputName = scanner.next();
-        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+        while (president.getName().equals(inputName) || checkInvalidName(inputName)) {
             System.out.println("Not a valid name. Try again");
             inputName = scanner.next();
         }
@@ -438,7 +447,7 @@ public class Game {
         System.out.println("Type the name of the player you want to investigate (except yourself)");
 
         String inputName = scanner.next();
-        while (president.getName().equals(inputName) || !checkValidName(inputName)) {
+        while (president.getName().equals(inputName) || checkInvalidName(inputName)) {
             System.out.println("Not a valid name. Try again");
             inputName = scanner.next();
         }
@@ -453,49 +462,55 @@ public class Game {
     }
 
     /**
-     * The top 3 policies in the deck are revealed to the president in order.
+     * The top 3 policies in the draw pile are revealed to the president in order.
      */
     public void policyPeek() {
         System.out.println("The president must look at the first 3 policies in order");
         devicePass(president);
 
-        System.out.println("The top 3 cards (from top to bottom) are:");
-        for (int i = 0; i < 3; i++) System.out.println(deck.get(i));
+        if (drawPile.size() < 3) reshuffleDrawPile();
+
+        System.out.println("The top 3 policies (from top to bottom) are:");
+        for (int i = 0; i < 3; i++) System.out.println(drawPile.get(i));
         devicePassConcluded();
     }
 
 
     /**
      * Increment the election tracker and announce the new value. If it reaches 3,
-     * play the top policy in the deck then reset it to 0.
+     * play the top policy of the draw pile then reset it to 0.
      */
     private void incrementElectionTracker() {
         electionTracker++;
         System.out.println("The election tracker has been incremented by 1");
         System.out.println("The election tracker is now on " + electionTracker);
+
         if (electionTracker == 3) {
-            System.out.println("The top policy in the deck will automatically be played");
-            playPolicy(deck.remove(0), false);
+            System.out.println("The top policy of the draw pile will automatically be played and the election tracker will be reset");
+
+            if (drawPile.isEmpty()) reshuffleDrawPile();
+            playPolicy(drawPile.remove(0), false);
+
             ineligiblePlayers.clear();
             electionTracker = 0;
         }
     }
 
     /**
-     * The president draws 3 policies from the top of the deck (make a new deck if it's too small),
+     * The president draws 3 policies from the top of the draw pile (reshuffle if it's too small),
      * then they secretly pass 2 to the chancellor who chooses 1 to play, or requests to veto if
-     * the veto power is unlocked. If the president agrees with the veto, the 2 cards are discarded.
+     * the veto power is unlocked. If the president agrees with the veto, the 2 policies are discarded.
      */
     private void legislativeSession() {
         System.out.println("LEGISLATIVE SESSION");
         System.out.println("Nobody may talk until a policy is enacted");
-        System.out.println("There are " + deck.size() + " policies remaining in the deck");
+        System.out.println("There are " + drawPile.size() + " policies remaining in the draw pile");
 
         ArrayList<Policy> hand = new ArrayList<>();
 
-        if (deck.size() < 3) newDeck();
+        if (drawPile.size() < 3) reshuffleDrawPile();
 
-        for (int i = 0; i < 3; i++) hand.add(deck.remove(0));
+        for (int i = 0; i < 3; i++) hand.add(drawPile.remove(0));
 
         devicePass(president);
         System.out.println("You have drawn " + hand);
@@ -507,7 +522,7 @@ public class Game {
             inputIndex = scanner.nextInt() - 1;
         }
 
-        hand.remove(inputIndex);
+        discardPile.add(hand.remove(inputIndex));
         Collections.shuffle(hand);
         devicePassConcluded();
 
@@ -524,12 +539,12 @@ public class Game {
             }
 
             if (!(inputIndex == -1)) {
-                hand.remove(inputIndex);
+                discardPile.add(hand.remove(inputIndex));
                 vetoSuccess = true;
                 playPolicy(hand.remove(0), true);
                 devicePassConcluded();
             } else {
-                System.out.println("After this message disappears announce that you wish to veto this agenda, then ");
+                System.out.println("Before you pass the device announce that you wish to veto this agenda");
                 devicePassConcluded();
 
                 devicePass(president);
@@ -543,10 +558,12 @@ public class Game {
                 }
 
                 if (inputVote.equals("Yes")) {
+                    discardPile.addAll(hand);
                     hand.clear();
+
                     vetoSuccess = true;
                     incrementElectionTracker();
-                }
+                } else System.out.println("The veto is unsuccessful");
             }
         }
 
