@@ -6,6 +6,8 @@ import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 
+import java.util.List;
+
 public class GUI extends Application {
 
     private static final int WINDOW_WIDTH = 1280, WINDOW_HEIGHT = 720;
@@ -13,7 +15,7 @@ public class GUI extends Application {
 
     private Stage stage;
     private Pane mainPane = null;
-    private StartScreen startScreen = null;
+    private GameScreen gameScreen;
 
     public static void main(String[] args) {
         launch(args);
@@ -33,10 +35,15 @@ public class GUI extends Application {
 
     private void initialise() {
         this.mainPane = new StackPane();
-        this.startScreen = new StartScreen();
-        this.startScreen.setContent(new StartMenu(this.startScreen));
+        StartScreen startScreen = new StartScreen(this);
+        startScreen.setContent(new StartMenu(startScreen));
 
-        mainPane.getChildren().addAll(new Rectangle(WINDOW_WIDTH, WINDOW_HEIGHT, Paint.valueOf(SHADE_COLOR)), startScreen);
+        mainPane.getChildren().addAll(gameScreen = new GameScreen(), new Rectangle(WINDOW_WIDTH, WINDOW_HEIGHT, Paint.valueOf(SHADE_COLOR)), startScreen);
         this.stage.setScene(new Scene(this.mainPane));
+    }
+
+    public void beginGame(List<String> playerNames) {
+        mainPane.getChildren().remove(1, 3);
+        //new GUIGame(gameScreen).start(playerNames);
     }
 }

@@ -1,5 +1,7 @@
 public abstract class FascistBoard extends Board {
 
+    public static final int MAX_NO_OF_POLICIES = 6;
+
     public FascistBoard(Game game) {
         super(game);
     }
@@ -27,7 +29,7 @@ public abstract class FascistBoard extends Board {
     protected void policyAction(boolean performAction) {
         System.out.println("A Fascist policy has been enacted\nThere are now "
                 + noOfPolicies + " Fascist policies in play");
-        if (noOfPolicies == 6) game.endGame("You have enacted 6 Fascist policies. The Fascists win!");
+        if (noOfPolicies == MAX_NO_OF_POLICIES) game.endGame("You have enacted 6 Fascist policies. The Fascists win!");
         else if (performAction) fascistPolicyAction();
     }
 

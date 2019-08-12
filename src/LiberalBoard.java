@@ -1,5 +1,7 @@
 public class LiberalBoard extends Board {
 
+    public static final int MAX_NO_OF_POLICIES = 5;
+
     public LiberalBoard(Game game) {
         super(game);
     }
@@ -11,6 +13,6 @@ public class LiberalBoard extends Board {
     protected void policyAction(boolean performAction) {
         System.out.println("A Liberal policy has been enacted\nThere are now "
                 + noOfPolicies + " Liberal policies in play");
-        if (noOfPolicies == 5) game.endGame("You have enacted 5 Liberal policies. The Liberals win!");
+        if (noOfPolicies == MAX_NO_OF_POLICIES) game.endGame("You have enacted 5 Liberal policies. The Liberals win!");
     }
 }

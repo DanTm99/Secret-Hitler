@@ -1,36 +1,40 @@
 import java.util.*;
 
-/**
- * This class is the implementation of the board game Secret Hitler in Java.
- * Secret Hitler was designed by Mike Boxleiter, Tommy Maranges and illustrated by Mackenzie Schubert.
- * The game was produced by Max Temkin.
- */
-public class Game {
+public class GUIGame extends Game { // Extends for dev purposes
     private final List<Player> players = new ArrayList<>();           // A List of the players in the game
     private final List<Player> ineligiblePlayers = new ArrayList<>(); // A ArrayList of the 2 players ineligible for the next parliament
     private final List<Policy> deck = new ArrayList<>();              // An ArrayList representing the deck of policies
 
     private final Scanner scanner = new Scanner(System.in);
     private final Random rand = new Random();
-
+    private final LiberalBoard liberalBoard = new LiberalBoard(this);
+    private final GameScreen gameScreen;
     private Iterator<Player> presidentTracker;  // An Iterator that keeps track of the president
     private int electionTracker;                // An int representing the election tracker
-
-    private final LiberalBoard liberalBoard = new LiberalBoard(this);
     private FascistBoard fascistBoard;
-
     private Player president;
     private Player chancellor;
-
     private boolean isSpecialElection = false;
     private boolean vetoUnlocked = false;
-    private boolean gameActive = true;
+    private boolean gameActive = false;
+
+    public GUIGame(GameScreen gameScreen) {
+        this.gameScreen = gameScreen;
+    }
 
     /**
      * Begin the game.
      */
-    public void start() {
-        setupPlayers();
+    public void start(List<String> playerNames) {
+        int noOfPlayers = playerNames.size();
+        if (noOfPlayers > 10 || noOfPlayers < 5) {
+            System.out.println("Invalid number of players");
+            return;
+        }
+
+        createPlayers(playerNames);
+
+        gameActive = true;
         newDeck();
         assignRoles();
         nightPhase();
@@ -51,31 +55,12 @@ public class Game {
         }
     }
 
-    /**
-     * Ask user how many players are playing and continue if it's between 5 and 10 inclusive,
-     * then create a Player object for each player, with names provided by the user (no duplicates).
-     **/
-    private void setupPlayers() {
-        System.out.println("How many players are playing?");
-        int numberOfPlayers = scanner.nextInt();
+    public void createPlayers(List<String> playerNames) {
+        for (String playerName : playerNames) createPlayer(playerName);
+    }
 
-        while (numberOfPlayers < 5 || numberOfPlayers > 10) {
-            System.out.println("5 - 10 players must be playing. Try again");
-            numberOfPlayers = scanner.nextInt();
-        }
-
-        Set<String> playerNames = new HashSet<>();
-        for (int i = 1; i <= numberOfPlayers; i++) {
-            System.out.println("What is player " + i + "'s name?");
-
-            String playerName = scanner.next();
-            while (playerNames.contains(playerName)) {
-                System.out.println("A player with this name already exists. Try again");
-                playerName = scanner.next();
-            }
-            playerNames.add(playerName);
-            players.add(new Player(playerName));
-        }
+    private void createPlayer(String playerName) {
+        players.add(new Player(playerName));
     }
 
     /**
@@ -153,7 +138,7 @@ public class Game {
     /**
      * Tell the user to pass the device to the specified player and wait for that player to type their name to confirm
      * that the device has been passed to them.
-     *
+     * <p>
      * This is useful when information needs to be revealed to a specific player without others knowing
      * or when information needs to be revealed by a certain player.
      *
@@ -188,7 +173,7 @@ public class Game {
      */
     private void passPresidency() {
         System.out.println("Show the device to all players");
-        if(!isSpecialElection) {
+        if (!isSpecialElection) {
             if (!presidentTracker.hasNext()) presidentTracker = players.iterator();
             president = presidentTracker.next();
             System.out.println("The president elect is now " + president.getName());
@@ -247,11 +232,11 @@ public class Game {
     /**
      * Let every player vote for the current parliament secretly before tallying up the votes then displaying
      * the number of Yes's and No's, alongside each player's vote and whether or not the vote has passed.
-     *
+     * <p>
      * If the vote passes, announce the elected parliament and set the election tracker to 0. If there are at least
      * 3 Fascist policies announce whether or not the current chancellor is Hitler. If Hitler is the chancellor
      * end the game, announcing the Fascists as the victors.
-     *
+     * <p>
      * If the vote doesn't pass increment the electron tracker and announce so.
      *
      * @return True is the vote succeeded. False otherwise.
@@ -329,10 +314,10 @@ public class Game {
             ineligiblePlayers.clear();
             ineligiblePlayers.add(chancellor);
         } else {
-        ineligiblePlayers.clear();
-        ineligiblePlayers.add(president);
-        ineligiblePlayers.add(chancellor);
-    }
+            ineligiblePlayers.clear();
+            ineligiblePlayers.add(president);
+            ineligiblePlayers.add(chancellor);
+        }
     }
 
     /**
@@ -554,6 +539,7 @@ public class Game {
 
     /**
      * End the current game
+     *
      * @param message the message to display before ending the game
      */
     public void endGame(String message) {
